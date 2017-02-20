@@ -1,0 +1,88 @@
+#!/bin/env python
+#encoding=utf-8
+# written by chenpeilin1@kingsoft.com
+
+import os,argparse,fnmatch, chardet
+
+
+def convert_file(filepath, dst_encoding):
+
+	result_txt = ""
+	src_txt = ""
+	with open(filepath, 'rb+') as f:
+		src_txt = f.read()
+
+		if len(src_txt) == 0:
+			# 没有内容，忽略
+			return
+
+		detect_encoding = src_encoding = chardet.detect(src_txt)['encoding']
+
+		#if detect_encoding == 'ascii':
+		 	# 纯英文，pass
+		# 	return
+
+		if not detect_encoding:
+			print 'Error: cannot detect file: %s, force gbk' % filepath
+			src_encoding = 'GBK'
+		if detect_encoding == 'ascii': # 不带BOM的UTF-8会被认为是ASCII
+			return
+
+        # if not 'utf' in src_encoding and not 'UTF' in src_encoding:
+            # # 可能是GBK，也可能是
+			# src_encoding = 'GBK'
+
+        try:
+            result_txt = src_txt.decode(src_encoding)
+        except Exception, e:
+            print('Error: %s, detect: %s' % (filepath, detect_encoding))
+            raise e
+
+
+	if src_encoding.lower() == dst_encoding.lower():
+		# 编码一样，忽略
+		return
+
+	print "Converting file `%s`, from `%s`(detect %s), to `%s`" % (filepath, src_encoding, detect_encoding, dst_encoding)
+
+	result_txt = result_txt.encode(dst_encoding)
+
+	if result_txt != src_txt:
+		with open(filepath, 'wb+') as w:
+			w.write(result_txt)
+
+
+
+
+
+def main():
+	parser = argparse.ArgumentParser(description=u'GBK批量转码工具')
+	parser.add_argument('paths', nargs='+', help=u'路径，目录或文件，将作为zip的根路径')
+	parser.add_argument('-wildcards', nargs='*', help=u'扩展名？写入*.cs等')
+	parser.add_argument('-encoding', default='utf-8', help=u'转到什么编码？默认utf-8')
+	args = parser.parse_args()
+	print('start converting...')
+
+	for path in args.paths:
+		for root, dirs, files in os.walk(path):
+			# for dir in dirs:
+			for file in files:
+
+				fullpath = os.path.abspath(os.path.join(root, file))
+
+				wildcards_pass = False
+				if not args.wildcards:
+					wildcards_pass = True
+				else:
+					for wildcard in args.wildcards:
+						if fnmatch.fnmatch(file, wildcard):
+							wildcards_pass = True
+							break
+				if wildcards_pass:
+					convert_file(fullpath, args.encoding)
+
+
+
+
+if __name__ == '__main__':
+	main()
